@@ -48,6 +48,7 @@ def test_event_member_role_survives_deterministic_edge_merge():
     builder = EventEntityKGBuilder.__new__(EventEntityKGBuilder)
     builder.profile = load_event_profile("example_event.v1")
     builder._merger = Merger()
+    builder.tokenizer = Merger.tokenizer
     storage = Storage()
     edge = {
         "src_id": "event:case-1",
