@@ -388,3 +388,7 @@ class KuzuStorage(BaseGraphStorage):
 
     def reload(self):
         """For databases that need reloading, KuzuDB auto-manages this."""
+
+    def write_losses(self, updates: list) -> int:
+        """kuzu 无数据库级事务包裹，loss 写回沿用基类 fail-closed 拒绝。"""
+        return super().write_losses(updates)
