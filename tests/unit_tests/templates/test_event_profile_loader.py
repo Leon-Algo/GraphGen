@@ -49,7 +49,14 @@ def test_event_profile_is_always_required():
     with pytest.raises(ValueError, match="event_profile_must_be_non_empty_string"):
         load_event_profile(None)
     with pytest.raises(ValueError, match="event_profile_not_found"):
-        load_event_profile("pms_event.v1")
+        load_event_profile("no_such_profile.v1")
+
+
+def test_pms_event_profile_loads_by_explicit_id_only():
+    """Fork-shipped pms_event.v1 is opt-in by explicit ID, never a default."""
+    profile = load_event_profile("pms_event.v1")
+    assert profile.profile_id == "pms_event.v1"
+    assert profile.prompt.strip()
 
 
 def test_disk_profile_preserved_through_service_and_builder(tmp_path, monkeypatch):
