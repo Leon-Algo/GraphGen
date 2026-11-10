@@ -1,9 +1,10 @@
-"""Deterministic output gates for generated QA pairs (PMS fork capability).
+"""Deterministic output gates for generated QA pairs.
 
 A gate is a pure, synchronous filter applied to the parsed QA list of one
 generate call before results reach the native cache. Gates never modify or
 fabricate model output; they only drop pairs that violate a declared
-deterministic contract. See docs/PMS_PATCHES.md #2.
+deterministic contract. Gates are registered by name via
+:func:`register_gate` and selected by name through ``GenerateService``.
 """
 
 from __future__ import annotations
@@ -28,12 +29,30 @@ _VAGUE_CONTRACT_PATTERN = re.compile(r"该合同|此合同|这份合同")
 
 
 def register_gate(name: str) -> Callable:
+    """Register a gate function under a unique name."""
+
     def _decorator(func: Callable[[Any], list[dict]]) -> Callable[[Any], list[dict]]:
         if name in GATES:
             raise ValueError(f"output_gate_already_registered:{name}")
         GATES[name] = func
         return func
+
     return _decorator
+
+
+@register_gate("non_empty_answer")
+def non_empty_answer(qa_pairs: Any) -> list[dict]:
+    """Generic built-in gate: keep only pairs with a non-empty answer."""
+    if not isinstance(qa_pairs, list):
+        return []
+    return [
+        pair
+        for pair in qa_pairs
+        if isinstance(pair, dict)
+        and isinstance(pair.get("question"), str)
+        and isinstance(pair.get("answer"), str)
+        and pair["answer"].strip()
+    ]
 
 
 @register_gate("pms_project_anchor")

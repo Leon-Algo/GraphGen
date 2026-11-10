@@ -28,7 +28,8 @@ class BuildKGService(BaseOperator):
         )
         self.build_kwargs = build_kwargs
         self.max_loop: int = int(self.build_kwargs.get("max_loop", 3))
-        # Opt-in fork capability. Existing configs continue to use LightRAG by default.
+        # Opt-in event/entity star graph mode. Existing configs keep using
+        # LightRAG by default; an event profile is always required.
         self.kg_method: str = str(self.build_kwargs.get("kg_method", "light_rag"))
         self.event_profile = self.build_kwargs.get("event_profile")
         if self.kg_method == "event_entity":

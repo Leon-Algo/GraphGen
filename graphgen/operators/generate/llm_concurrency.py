@@ -1,11 +1,9 @@
 """Bound in-flight LLM requests of a generator inside one event loop.
 
 Official ``run_concurrent`` has no cross-batch concurrency cap; a busy LLM
-endpoint (e.g. a 35B-A3B deployment) can deadlock under high fan-out. This
-helper caps concurrent ``generator.generate`` calls with an asyncio.Semaphore
-created lazily per running loop (Ray actors create a fresh loop per batch).
-Pure stdlib so PMS-side contract tests can import this module by path without
-the graphgen package installed. See docs/PMS_PATCHES.md #3.
+endpoint can deadlock under high fan-out. This helper caps concurrent
+``generator.generate`` calls with an asyncio.Semaphore created lazily per
+running loop (Ray actors create a fresh loop per batch).
 """
 
 from __future__ import annotations

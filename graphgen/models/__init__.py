@@ -23,7 +23,7 @@ if TYPE_CHECKING:
         TrueFalseGenerator,
         VQAGenerator,
     )
-    from .kg_builder import LightRAGKGBuilder, MMKGBuilder
+    from .kg_builder import EventEntityKGBuilder, LightRAGKGBuilder, MMKGBuilder
     from .llm import HTTPClient, OllamaClient, OpenAIClient
     from .partitioner import (
         AnchorBFSPartitioner,
@@ -81,6 +81,7 @@ _import_map = {
     # KG Builder
     "LightRAGKGBuilder": ".kg_builder",
     "MMKGBuilder": ".kg_builder",
+    "EventEntityKGBuilder": ".kg_builder",
     # LLM
     "HTTPClient": ".llm",
     "OllamaClient": ".llm",

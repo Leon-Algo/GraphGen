@@ -16,8 +16,7 @@ class AggregatedGenerator(BaseGenerator):
     TEMPLATE_KEY = "aggregated"
 
     def build_prompt(
-        self,
-        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]],
+        self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """
         Build prompts for REPHRASE.
@@ -81,9 +80,7 @@ class AggregatedGenerator(BaseGenerator):
         :return:
         """
         language = detect_main_language(answer)
-        prompt = self.template(language, "QUESTION_GENERATION").format(
-            answer=answer
-        )
+        prompt = self.template(language, "QUESTION_GENERATION").format(answer=answer)
         return prompt
 
     @staticmethod

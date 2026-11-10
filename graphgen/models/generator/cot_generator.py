@@ -9,8 +9,7 @@ class CoTGenerator(BaseGenerator):
     TEMPLATE_KEY = "cot"
 
     def build_prompt(
-        self,
-        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]],
+        self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """
         Build prompts for COT Template Design.

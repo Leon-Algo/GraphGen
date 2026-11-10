@@ -7,6 +7,7 @@ from graphgen.utils import detect_main_language, logger
 
 class FillInBlankGenerator(BaseGenerator):
     TEMPLATE_KEY = "fill_in_blank"
+
     def __init__(self, llm_client, num_of_questions) -> None:
         super().__init__(llm_client)
         self.num_of_questions = num_of_questions
@@ -72,7 +73,6 @@ class FillInBlankGenerator(BaseGenerator):
 
         return qa_pairs
 
-    # pylint: disable=W0221
     def build_prompt(
         self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:

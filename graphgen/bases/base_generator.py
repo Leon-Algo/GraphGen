@@ -5,17 +5,8 @@ from graphgen.bases.base_llm_wrapper import BaseLLMWrapper
 
 
 class BaseGenerator(ABC):
-    """
-    Generate QAs based on given prompts.
+    """Generate QAs based on given prompts."""
 
-    PMS fork: prompt templates can be overridden per instance via a versioned
-    prompt profile (see graphgen.templates.prompt_profiles). Generators declare
-    their official template under ``TEMPLATE_KEY`` and render through
-    ``self.template(...)``; without a profile the official constant is used
-    byte-for-byte.
-    """
-
-    #: key into graphgen.templates.prompt_profiles.OFFICIAL_TEMPLATES
     TEMPLATE_KEY: Optional[str] = None
 
     def __init__(self, llm_client: BaseLLMWrapper):
@@ -33,29 +24,22 @@ class BaseGenerator(ABC):
         self._profile_templates = load_profile_template(profile, self.TEMPLATE_KEY)
 
     def template(self, language: str, key: Optional[str] = None) -> str:
-        """Resolve the effective template for this generator.
-
-        :param language: detected language key ("en" / "zh").
-        :param key: nested sub-template key for multi-phase generators.
-        """
+        """Resolve the effective template for this generator."""
         from graphgen.templates.prompt_profiles import OFFICIAL_TEMPLATES
 
         if self.TEMPLATE_KEY is None:
-            raise ValueError(
-                f"prompt_template_key_missing:{type(self).__name__}"
-            )
+            raise ValueError(f"prompt_template_key_missing:{type(self).__name__}")
         if self._profile_templates is not None:
             node = self._profile_templates[language]
         else:
             node = OFFICIAL_TEMPLATES[self.TEMPLATE_KEY][language]
         return node[key] if key is not None else node
 
-    @staticmethod
     @abstractmethod
     def build_prompt(
-        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
+        self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
-        """Build prompt for LLM based on the given batch"""
+        """Build prompt for LLM based on the given batch."""
 
     @staticmethod
     @abstractmethod
@@ -84,8 +68,6 @@ class BaseGenerator(ABC):
     ) -> dict[str, Any]:
         question = result.get("question", "")
         answer = result.get("answer", "")
-        # PMS fork（Phase 2）：已校验的 <support> 引用块随 QA_pairs 输出透传。
-        support = result.get("support")
         if "options" in result and result["options"]:
             options = result["options"]
             options_str = "\n".join(
@@ -120,6 +102,8 @@ class BaseGenerator(ABC):
                 "question": question,
                 "answer": answer,
             }
+            # PMS fork（Phase 2）：已校验的 <support> 引用块随 QA_pairs 输出透传。
+            support = result.get("support")
             if support:
                 output["support"] = support
             return output

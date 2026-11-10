@@ -1,8 +1,8 @@
 """Versioned prompt profiles: config-driven prompt customization for generators.
 
-PMS fork capability (see docs/PMS_PATCHES.md #1). Official GraphGen hard-codes all
-prompts as Python constants under ``graphgen.templates``; this module adds a
-generic, fail-closed override channel:
+Official GraphGen hard-codes all prompts as Python constants under
+``graphgen.templates``; this module adds a generic, fail-closed override
+channel:
 
 - a *profile* is a directory containing one JSON file per generator
   ``TEMPLATE_KEY`` (e.g. ``atomic.json``);

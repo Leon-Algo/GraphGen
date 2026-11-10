@@ -1,8 +1,11 @@
-"""Generic shared-participant event join partitioner (SAG join semantics).
+"""Shared-participant event join partitioner.
 
-Anchor isolation reads an explicit node attribute and never infers domain data
-from event ID strings.
+Groups EVENT star sub-graphs into communities joined on shared participant
+entities. Anchor isolation reads an explicit node attribute and never infers
+domain data from event ID strings.
 """
+
+from __future__ import annotations
 
 from collections import deque
 from typing import Any, Iterable, List, Optional, Set, Tuple
@@ -11,8 +14,46 @@ from graphgen.bases import BaseGraphStorage, BasePartitioner
 from graphgen.bases.datatypes import Community
 
 
+def _validate_params(
+    max_events_per_community: int,
+    max_tokens_per_community: int,
+    min_events_per_community: int,
+    event_entity_type: str,
+    anchor_attribute: str,
+    require_same_anchor: bool,
+) -> None:
+    if not isinstance(require_same_anchor, bool):
+        raise ValueError("event_join_require_same_anchor_must_be_bool")
+    if not isinstance(event_entity_type, str) or not event_entity_type.strip():
+        raise ValueError("event_join_event_entity_type_required")
+    if not isinstance(anchor_attribute, str) or not anchor_attribute.strip():
+        raise ValueError("event_join_anchor_attribute_required")
+    if max_events_per_community < 1 or min_events_per_community < 1 or max_tokens_per_community < 1:
+        raise ValueError("event_join_limits_must_be_positive")
+
+
+def _is_expandable(
+    other: str,
+    other_anchor: str,
+    *,
+    used: Set[str],
+    event_set: Set[str],
+    anchor: str,
+    require_same_anchor: bool,
+    token_sum: int,
+    max_tokens_per_community: int,
+    other_length: int,
+) -> bool:
+    """Decide whether a shared-participant event may join the community."""
+    if other in used or other in event_set:
+        return False
+    if require_same_anchor and other_anchor != anchor:
+        return False
+    return token_sum + other_length <= max_tokens_per_community
+
+
 class EventJoinPartitioner(BasePartitioner):
-    """EVENT 星型子图 → 同项目事件簇（官方 Community 数据类型）。"""
+    """Join event star sub-graphs that share participant entities."""
 
     def partition(
         self,
@@ -22,17 +63,17 @@ class EventJoinPartitioner(BasePartitioner):
         min_events_per_community: int = 1,
         event_entity_type: str = "EVENT",
         anchor_attribute: str = "anchor",
-        require_same_anchor: bool = True,
+        require_same_anchor: bool = False,
         **kwargs: Any,
     ) -> Iterable[Community]:
-        if not isinstance(require_same_anchor, bool):
-            raise ValueError("event_join_require_same_anchor_must_be_bool")
-        if not isinstance(event_entity_type, str) or not event_entity_type.strip():
-            raise ValueError("event_join_event_entity_type_required")
-        if not isinstance(anchor_attribute, str) or not anchor_attribute.strip():
-            raise ValueError("event_join_anchor_attribute_required")
-        if max_events_per_community < 1 or min_events_per_community < 1 or max_tokens_per_community < 1:
-            raise ValueError("event_join_limits_must_be_positive")
+        _validate_params(
+            max_events_per_community,
+            max_tokens_per_community,
+            min_events_per_community,
+            event_entity_type,
+            anchor_attribute,
+            require_same_anchor,
+        )
         events: List[Tuple[str, dict]] = []
         node_dict: dict[str, dict] = {}
         for nid, data in g.get_all_nodes():
@@ -41,7 +82,7 @@ class EventJoinPartitioner(BasePartitioner):
                 events.append((nid, data))
         events.sort(key=lambda item: item[0])
 
-        # 参与者 → 事件 倒排索引（共享实体 join key）
+        # participant -> events inverted index (shared entity as the join key)
         events_by_entity: dict[str, List[str]] = {}
         star_edges: dict[str, List[str]] = {}
         for event_id, _ in events:
@@ -62,6 +103,7 @@ class EventJoinPartitioner(BasePartitioner):
             member_edges: Set[frozenset] = set()
             token_sum = 0
             anchor = _anchor(seed[0])
+            # skip events without the required anchor instead of failing
             if require_same_anchor and not anchor:
                 return None
             queue = deque([seed[0]])
@@ -83,15 +125,21 @@ class EventJoinPartitioner(BasePartitioner):
                             member_entities[entity_id] = entity_data
                     edge_key = frozenset((event_id, entity_id))
                     member_edges.add(edge_key)
-                    # 共享实体 join 一跳扩展；跨锚事件被硬约束拒绝
+                    # one-hop expansion over shared entities; events from
+                    # another anchor are rejected under require_same_anchor
                     for other in events_by_entity.get(entity_id, []):
-                        if other in used or other in event_set:
-                            continue
-                        if require_same_anchor and _anchor(other) != anchor:
-                            continue
-                        if token_sum + int(node_dict[other].get("length", 0)) > max_tokens_per_community:
-                            continue
-                        queue.append(other)
+                        if _is_expandable(
+                            other,
+                            _anchor(other),
+                            used=used,
+                            event_set=event_set,
+                            anchor=anchor,
+                            require_same_anchor=require_same_anchor,
+                            token_sum=token_sum,
+                            max_tokens_per_community=max_tokens_per_community,
+                            other_length=int(node_dict[other].get("length", 0)),
+                        ):
+                            queue.append(other)
                 if len(event_set) >= max_events_per_community:
                     break
 

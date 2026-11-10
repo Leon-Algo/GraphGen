@@ -18,8 +18,7 @@ class MaskedFillInBlankGenerator(BaseGenerator):
     TEMPLATE_KEY = "masked_fill_in_blank"
 
     def build_prompt(
-        self,
-        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]],
+        self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         """
         Build prompts for REPHRASE.

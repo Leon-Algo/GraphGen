@@ -6,6 +6,48 @@ from graphgen.common.init_storage import init_storage
 from graphgen.utils import logger, run_concurrent
 
 
+def _gated_generate(generate, gate):
+    """Wrap an async generate so its parsed QA list passes through ``gate``."""
+
+    async def _wrapper(batch: list) -> list[dict]:
+        return gate(await generate(batch))
+
+    return _wrapper
+
+
+#: method -> (generator class name, default num_of_questions or None)
+_GENERATOR_SPECS = {
+    "atomic": ("AtomicGenerator", None),
+    "aggregated": ("AggregatedGenerator", None),
+    "multi_hop": ("MultiHopGenerator", None),
+    "cot": ("CoTGenerator", None),
+    "vqa": ("VQAGenerator", None),
+    "multi_choice": ("MultiChoiceGenerator", 5),
+    "multi_answer": ("MultiAnswerGenerator", 3),
+    "fill_in_blank": ("FillInBlankGenerator", 5),
+    "masked_fill_in_blank": ("MaskedFillInBlankGenerator", None),
+    "true_false": ("TrueFalseGenerator", 5),
+}
+
+
+def _create_generator(llm_client: BaseLLMWrapper, method: str, generate_kwargs: dict):
+    """Instantiate the generator selected by ``method``."""
+    if method not in _GENERATOR_SPECS:
+        raise ValueError(f"Unsupported generation mode: {method}")
+    class_name, default_num_of_questions = _GENERATOR_SPECS[method]
+    from graphgen import models as graphgen_models
+
+    generator_cls = getattr(graphgen_models, class_name)
+    if default_num_of_questions is None:
+        return generator_cls(llm_client)
+    return generator_cls(
+        llm_client,
+        num_of_questions=generate_kwargs.get(
+            "num_of_questions", default_num_of_questions
+        ),
+    )
+
+
 class GenerateService(BaseOperator):
     """
     Generate question-answer pairs based on nodes and edges.
@@ -40,60 +82,7 @@ class GenerateService(BaseOperator):
         self.method = method
         self.data_format = data_format
 
-        if self.method == "atomic":
-            from graphgen.models import AtomicGenerator
-
-            self.generator = AtomicGenerator(self.llm_client)
-        elif self.method == "aggregated":
-            from graphgen.models import AggregatedGenerator
-
-            self.generator = AggregatedGenerator(self.llm_client)
-        elif self.method == "multi_hop":
-            from graphgen.models import MultiHopGenerator
-
-            self.generator = MultiHopGenerator(self.llm_client)
-        elif self.method == "cot":
-            from graphgen.models import CoTGenerator
-
-            self.generator = CoTGenerator(self.llm_client)
-        elif self.method == "vqa":
-            from graphgen.models import VQAGenerator
-
-            self.generator = VQAGenerator(self.llm_client)
-        elif self.method == "multi_choice":
-            from graphgen.models import MultiChoiceGenerator
-
-            self.generator = MultiChoiceGenerator(
-                self.llm_client,
-                num_of_questions=generate_kwargs.get("num_of_questions", 5),
-            )
-        elif self.method == "multi_answer":
-            from graphgen.models import MultiAnswerGenerator
-
-            self.generator = MultiAnswerGenerator(
-                self.llm_client,
-                num_of_questions=generate_kwargs.get("num_of_questions", 3),
-            )
-        elif self.method == "fill_in_blank":
-            from graphgen.models import FillInBlankGenerator
-
-            self.generator = FillInBlankGenerator(
-                self.llm_client,
-                num_of_questions=generate_kwargs.get("num_of_questions", 5),
-            )
-        elif self.method == "masked_fill_in_blank":
-            from graphgen.models import MaskedFillInBlankGenerator
-
-            self.generator = MaskedFillInBlankGenerator(self.llm_client)
-        elif self.method == "true_false":
-            from graphgen.models import TrueFalseGenerator
-
-            self.generator = TrueFalseGenerator(
-                self.llm_client,
-                num_of_questions=generate_kwargs.get("num_of_questions", 5),
-            )
-        else:
-            raise ValueError(f"Unsupported generation mode: {method}")
+        self.generator = _create_generator(self.llm_client, method, generate_kwargs)
 
         if prompt_profile:
             self.generator.apply_prompt_profile(prompt_profile)
@@ -136,7 +125,6 @@ class GenerateService(BaseOperator):
             unit="batch",
         )
 
-        from graphgen.models.generator.support import validate_support
 
         meta_updates = {}
         final_results = []

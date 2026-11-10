@@ -8,9 +8,9 @@ from graphgen.utils import detect_main_language, logger
 
 class VQAGenerator(BaseGenerator):
     TEMPLATE_KEY = "vqa"
+
     def build_prompt(
-        self,
-        batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]],
+        self, batch: tuple[list[tuple[str, dict]], list[tuple[Any, Any, dict]]]
     ) -> str:
         nodes, edges = batch
         entities_str = "\n".join(
